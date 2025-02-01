@@ -1,159 +1,56 @@
-import BlurPage from '@/components/global/blur-page'
-import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import { stripe } from '@/lib/stripe'
-import { getStripeOAuthLink } from '@/lib/utils'
-import { CheckCircleIcon } from 'lucide-react'
-import Image from 'next/image'
-import Link from 'next/link'
-import React from 'react'
+import axios from 'axios'
 
 type Props = {
-  searchParams: {
-    state: string
-    code: string
+  params: {
+    subaccountId: string
   }
-  params: { subaccountId: string }
+  searchParams: { code: string }
+}
+
+const scanFile = async (hash: string) => {
+  const apiKey = process.env.VIRUSTOTAL_API_KEY
+  try {
+    const response = await axios.get(
+      `https://www.virustotal.com/vtapi/v2/file/report`,
+      {
+        params: {
+          apikey: apiKey,
+          resource: hash
+        }
+      }
+    )
+    return response.data
+  } catch (error) {
+    console.error('Error scanning file:', error)
+    throw new Error('Failed to scan file')
+  }
 }
 
 const LaunchPad = async ({ params, searchParams }: Props) => {
   const subaccountDetails = await db.subAccount.findUnique({
-    where: {
-      id: params.subaccountId,
-    },
+    where: { id: params.subaccountId },
   })
 
-  if (!subaccountDetails) {
-    return
-  }
+  if (!subaccountDetails) return null
 
-  const allDetailsExist =
-    subaccountDetails.address &&
-    subaccountDetails.subAccountLogo &&
-    subaccountDetails.city &&
-    subaccountDetails.companyEmail &&
-    subaccountDetails.companyPhone &&
-    subaccountDetails.country &&
-    subaccountDetails.name &&
-    subaccountDetails.state
-
-  const stripeOAuthLink = getStripeOAuthLink(
-    'subaccount',
-    `launchpad___${subaccountDetails.id}`
-  )
-
-  let connectedStripeAccount = false
-
-  if (searchParams.code) {
-    if (!subaccountDetails.connectAccountId) {
-      try {
-        const response = await stripe.oauth.token({
-          grant_type: 'authorization_code',
-          code: searchParams.code,
-        })
-        await db.subAccount.update({
-          where: { id: params.subaccountId },
-          data: { connectAccountId: response.stripe_user_id },
-        })
-        connectedStripeAccount = true
-      } catch (error) {
-        console.log('🔴 Could not connect stripe account', error)
-      }
+  // Add file scanning before redirect
+  try {
+    const fileHash = 'dcf7873aa7e479060b21f5bbcc595472e40989289b2e034cf5e677f178f0a198'
+    const scanResult = await scanFile(fileHash)
+    
+    if (scanResult.positives > 0) {
+      throw new Error('Potentially malicious file detected')
     }
+  } catch (error) {
+    console.error('Virus scan failed:', error)
+    // Handle the error appropriately - maybe redirect to an error page
+    redirect(`/subaccount/${params.subaccountId}/error`)
   }
 
-  return (
-    <BlurPage>
-      <div className="flex flex-col justify-center items-center">
-        <div className="w-full h-full max-w-[800px]">
-          <Card className="border-none ">
-            <CardHeader>
-              <CardTitle>Lets get started!</CardTitle>
-              <CardDescription>
-                Follow the steps below to get your account setup correctly.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <div className="flex justify-between items-center w-full h-20 border p-4 rounded-lg ">
-                <div className="flex items-center gap-4">
-                  <Image
-                    src="/appstore.png"
-                    alt="App logo"
-                    height={80}
-                    width={80}
-                    className="rounded-md object-contain"
-                  />
-                  <p>Save the website as a shortcut on your mobile devide</p>
-                </div>
-                <Button>Start</Button>
-              </div>
-              <div className="flex justify-between items-center w-full h-20 border p-4 rounded-lg">
-                <div className="flex items-center gap-4">
-                  <Image
-                    src="/stripelogo.png"
-                    alt="App logo"
-                    height={80}
-                    width={80}
-                    className="rounded-md object-contain "
-                  />
-                  <p>
-                    Connect your stripe account to accept payments. Stripe is
-                    used to run payouts.
-                  </p>
-                </div>
-                {subaccountDetails.connectAccountId ||
-                connectedStripeAccount ? (
-                  <CheckCircleIcon
-                    size={50}
-                    className=" text-primary p-2 flex-shrink-0"
-                  />
-                ) : (
-                  <Link
-                    className="bg-primary py-2 px-4 rounded-md text-white"
-                    href={stripeOAuthLink}
-                  >
-                    Start
-                  </Link>
-                )}
-              </div>
-              <div className="flex justify-between items-center w-full h-20 border p-4 rounded-lg">
-                <div className="flex items-center gap-4">
-                  <Image
-                    src={subaccountDetails.subAccountLogo}
-                    alt="App logo"
-                    height={80}
-                    width={80}
-                    className="rounded-md object-contain p-4"
-                  />
-                  <p>Fill in all your business details.</p>
-                </div>
-                {allDetailsExist ? (
-                  <CheckCircleIcon
-                    size={50}
-                    className=" text-primary p-2 flex-shrink-0"
-                  />
-                ) : (
-                  <Link
-                    className="bg-primary py-2 px-4 rounded-md text-white"
-                    href={`/subaccount/${subaccountDetails.id}/settings`}
-                  >
-                    Start
-                  </Link>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </BlurPage>
-  )
+  // Redirect to the subaccount dashboard
+  redirect(`/subaccount/${params.subaccountId}/`)
 }
 
 export default LaunchPad
