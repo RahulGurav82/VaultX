@@ -1,5 +1,6 @@
 'use client'
 import React from 'react'
+import { useCallback } from 'react'
 import { z } from 'zod'
 import { useToast } from '../ui/use-toast'
 import { useRouter } from 'next/navigation'
@@ -46,26 +47,42 @@ const UploadMediaForm = ({ subaccountId }: Props) => {
     },
   })
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      const response = await createMedia(subaccountId, values)
-      await saveActivityLogsNotification({
-        agencyId: undefined,
-        description: `Uploaded a media file | ${response.name}`,
-        subaccountId,
-      })
 
-      toast({ title: 'Succes', description: 'Uploaded media' })
-      router.refresh()
-    } catch (error) {
-      console.log(error)
-      toast({
-        variant: 'destructive',
-        title: 'Failed',
-        description: 'Could not uploaded media',
-      })
-    }
+  // Inside the onSubmit function, modify it to:
+  // ... existing code ...
+
+const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  try {
+    // Convert the uploaded image to binary data
+    const imageResponse = await fetch(values.link);
+    const arrayBuffer = await imageResponse.arrayBuffer();
+    const binaryData = Buffer.from(arrayBuffer);
+
+    const mediaResponse = await createMedia(subaccountId, {
+      name: values.name,
+      link: values.link,
+      binaryData: binaryData,
+    });
+
+    await saveActivityLogsNotification({
+      agencyId: undefined,
+      description: `Uploaded a media file | ${mediaResponse.name}`,
+      subaccountId,
+    });
+
+    toast({ title: 'Success', description: 'Uploaded media' });
+    router.refresh();
+  } catch (error) {
+    console.log(error);
+    toast({
+      variant: 'destructive',
+      title: 'Failed',
+      description: 'Could not upload media',
+    });
   }
+};
+
+// ... rest of the component
 
   return (
     <Card className="w-full">

@@ -274,14 +274,14 @@ model Contact {
 }
 
 model Media {
-  id           String     @id @default(uuid())
-  type         String?
+  id           String      @id @default(uuid())
   name         String
-  link         String     @unique
+  link         String      @db.Text
+  binaryData   Bytes?      // Add this field for binary storage
   subAccountId String
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  Subaccount   SubAccount @relation(fields: [subAccountId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  SubAccount   SubAccount? @relation(fields: [subAccountId], references: [id], onDelete: Cascade)
 
   @@index([subAccountId])
 }

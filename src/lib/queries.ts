@@ -497,29 +497,44 @@ export const sendInvitation = async (
 }
 
 export const getMedia = async (subaccountId: string) => {
-  const mediafiles = await db.subAccount.findUnique({
-    where: {
-      id: subaccountId,
-    },
+  const response = await db.subAccount.findUnique({
+    where: { id: subaccountId },
     include: { Media: true },
   })
-  return mediafiles
+  return response
 }
+
+import { Buffer } from 'buffer';
+
+type CreateMediaType = {
+  name: string;
+  link: string;
+  binaryData: Buffer;
+};
 
 export const createMedia = async (
   subaccountId: string,
-  mediaFile: CreateMediaType
+  data: { name: string; link: string; binaryData?: Buffer | string | ArrayBuffer | null }
 ) => {
+  const binaryData = data.binaryData
+    ? Buffer.isBuffer(data.binaryData)
+      ? data.binaryData
+      : Buffer.from(data.binaryData as any) // Ensure it's a Buffer
+    : null;
+
   const response = await db.media.create({
     data: {
-      link: mediaFile.link,
-      name: mediaFile.name,
+      name: data.name,
+      link: data.link,
+      binaryData,
       subAccountId: subaccountId,
     },
-  })
+  });
 
-  return response
-}
+  return response;
+};
+
+
 
 export const deleteMedia = async (mediaId: string) => {
   const response = await db.media.delete({

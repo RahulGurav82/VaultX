@@ -32,13 +32,17 @@ const MediaCard = ({ file }: Props) => {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
+  const imageSource = file.binaryData 
+  ? `data:image/jpeg;base64,${Buffer.from(file.binaryData).toString('base64')}`
+  : file.link
+
   return (
     <AlertDialog>
       <DropdownMenu>
         <article className="border w-full rounded-lg bg-slate-900">
           <div className="relative w-full h-40">
-            <Image
-              src={file.link}
+          <Image
+              src={imageSource}
               alt="preview image"
               fill
               className="object-cover rounded-lg"
